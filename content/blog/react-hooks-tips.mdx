@@ -1,0 +1,57 @@
+---
+title: "React Hooks で気をつけていること"
+date: "2026-02-20"
+description: "日常的に使っている React Hooks のベストプラクティスと注意点をまとめました"
+category: "tech"
+---
+
+## はじめに
+
+React Hooks は便利ですが、使い方を誤るとバグやパフォーマンスの問題を引き起こすことがあります。
+日頃から気をつけていることをまとめます。
+
+## 1. useEffect の依存配列を正しく設定する
+
+依存配列を省略したり、必要な値を含めないと意図しない挙動になります。
+
+```typescript
+// NG: 依存配列が空なのに state を参照している
+useEffect(() => {
+  console.log(count); // 常に初期値を参照してしまう
+}, []);
+
+// OK: 依存配列に count を含める
+useEffect(() => {
+  console.log(count);
+}, [count]);
+```
+
+## 2. useCallback / useMemo は必要な時だけ使う
+
+何でもメモ化すればいいわけではありません。
+メモ化自体にもコストがかかるため、再レンダリングがボトルネックになっている箇所で使いましょう。
+
+## 3. カスタムフックで関心を分離する
+
+コンポーネントが肥大化してきたら、ロジックをカスタムフックに切り出します。
+
+```typescript
+function useWindowSize() {
+  const [size, setSize] = useState({ width: 0, height: 0 });
+
+  useEffect(() => {
+    const handleResize = () => {
+      setSize({ width: window.innerWidth, height: window.innerHeight });
+    };
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  return size;
+}
+```
+
+## まとめ
+
+基本的なことですが、これらを意識するだけでコードの品質が大きく変わります。

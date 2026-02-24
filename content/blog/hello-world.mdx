@@ -1,0 +1,45 @@
+---
+title: "ポートフォリオサイトを作りました"
+date: "2026-02-23"
+description: "Next.js + TypeScript + Tailwind CSS でポートフォリオサイトを構築した話"
+category: "tech"
+---
+
+## はじめに
+
+個人ブランディングの一環として、ポートフォリオサイトを作成しました。
+このサイトの技術スタックと設計思想について紹介します。
+
+## 技術スタック
+
+- **Next.js** (App Router) - React ベースのフレームワーク
+- **TypeScript** - 型安全な開発
+- **Tailwind CSS** - ユーティリティファーストなCSS
+- **MDX** - Markdown で記事を執筆
+
+## こだわりポイント
+
+### ミニマルなデザイン
+
+余白を十分に取り、コンテンツに集中できるデザインにしました。
+フォントには Geist を採用し、モダンで読みやすい印象を目指しています。
+
+### パフォーマンス
+
+Next.js の App Router と静的生成を活用して、高速なページ読み込みを実現しています。
+
+```typescript
+// MDXファイルからブログ記事を取得
+export function getAllPosts(): BlogPost[] {
+  const files = fs.readdirSync(BLOG_DIR);
+  return files.map((filename) => {
+    const { data, content } = matter(fileContent);
+    return { slug, title: data.title, content };
+  });
+}
+```
+
+## まとめ
+
+シンプルだけど機能的なサイトが出来上がりました。
+今後もブログ記事を定期的に更新していきます。
