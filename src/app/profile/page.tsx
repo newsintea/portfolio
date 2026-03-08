@@ -5,6 +5,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import SkillCard from "@/components/SkillCard";
 import BlogCard from "@/components/BlogCard";
 import { getAllPosts } from "@/lib/blog";
+import GitHubContributions from "@/components/GitHubCalendar";
 
 const skills = [
   {
@@ -64,6 +65,16 @@ export default function Profile() {
           React / Vue / Next.js / Nuxt / Ruby on Rails など
           フロントエンドからバックエンドまで幅広い技術スタックで開発しています。
         </p>
+      </section>
+
+      <Separator />
+
+      {/* GitHub Contributions */}
+      <section className="py-12">
+        <h2 className="mb-6 text-xl font-bold">GitHub Contributions</h2>
+        <div className="overflow-x-auto">
+          <GitHubContributions username="newsintea" />
+        </div>
       </section>
 
       <Separator />
