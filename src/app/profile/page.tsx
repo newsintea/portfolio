@@ -2,35 +2,67 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import SkillCard from "@/components/SkillCard";
 import BlogCard from "@/components/BlogCard";
 import { getAllPosts } from "@/lib/blog";
 import GitHubContributions from "@/components/GitHubCalendar";
+import SkillDotSection from "@/components/SkillDotSection";
 
 const skills = [
   {
     category: "Languages",
-    skills: ["TypeScript", "JavaScript", "Java", "HTML", "CSS"],
+    skills: [
+      { name: "TypeScript", level: 5 },
+      { name: "JavaScript", level: 5 },
+      { name: "Java", level: 2 },
+      { name: "HTML", level: 4 },
+      { name: "CSS", level: 4 },
+    ],
   },
   {
     category: "Frontend",
-    skills: ["React", "Next.js", "Vue", "Nuxt", "MUI", "Ant Design", "Element Plus"],
+    skills: [
+      { name: "React", level: 5 },
+      { name: "Next.js", level: 3 },
+      { name: "Vue", level: 4 },
+      { name: "Nuxt", level: 3 },
+      { name: "MUI", level: 4 },
+      { name: "Ant Design", level: 4 },
+      { name: "Element Plus", level: 3 },
+    ],
   },
   {
     category: "Backend",
-    skills: ["Ruby on Rails", "PostgreSQL", "MySQL"],
+    skills: [
+      { name: "Ruby on Rails", level: 2 },
+      { name: "Spring Boot", level: 2 },
+      { name: "PostgreSQL", level: 2 },
+      { name: "MySQL", level: 2 },
+    ],
   },
   {
     category: "Testing",
-    skills: ["Jest", "Vitest", "React Testing Library", "Storybook"],
+    skills: [
+      { name: "Jest", level: 3 },
+      { name: "React Testing Library", level: 3 },
+      { name: "Storybook", level: 3 },
+    ],
   },
   {
     category: "Infra / Tools",
-    skills: ["Docker", "AWS", "Git", "Vercel"],
+    skills: [
+      { name: "Docker", level: 2 },
+      { name: "AWS", level: 2 },
+      { name: "Git", level: 5 },
+      { name: "Vercel", level: 3 },
+    ],
   },
   {
     category: "AI / Editor",
-    skills: ["OpenAI", "Claude Code", "Cursor", "VS Code"],
+    skills: [
+      { name: "Claude Code", level: 4 },
+      { name: "Cursor", level: 3 },
+      { name: "VS Code", level: 5 },
+    ],
   },
 ];
 
@@ -82,11 +114,7 @@ export default function Profile() {
       {/* Skills */}
       <section className="py-12">
         <h2 className="mb-6 text-xl font-bold">Skills</h2>
-        <div className="grid gap-4 sm:grid-cols-2">
-          {skills.map((s) => (
-            <SkillCard key={s.category} category={s.category} skills={s.skills} />
-          ))}
-        </div>
+        <SkillDotSection groups={skills} />
       </section>
 
       <Separator />
