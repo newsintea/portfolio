@@ -31,7 +31,7 @@ export default function BlogPage() {
   );
 
   return (
-    <div className="mx-auto max-w-3xl px-6 py-20">
+    <div className="mx-auto max-w-4xl px-6 py-20">
       <h1 className="mb-2 text-3xl font-bold tracking-tight">Blog</h1>
       <p className="mb-8 text-muted-foreground">
         技術記事やアウトプットを掲載しています。

@@ -5,7 +5,7 @@ export default function Footer() {
   return (
     <footer>
       <Separator />
-      <div className="mx-auto flex max-w-3xl flex-col items-center gap-4 px-6 py-8 text-sm text-muted-foreground sm:flex-row sm:justify-between">
+      <div className="mx-auto flex max-w-4xl flex-col items-center gap-4 px-6 py-8 text-sm text-muted-foreground sm:flex-row sm:justify-between">
         <p>&copy; {new Date().getFullYear()} newsintea. All rights reserved.</p>
         <div className="flex gap-1">
           <Button variant="ghost" size="sm" asChild>

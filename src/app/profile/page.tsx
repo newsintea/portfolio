@@ -6,6 +6,25 @@ import BlogCard from "@/components/BlogCard";
 import { getAllPosts } from "@/lib/blog";
 import GitHubContributions from "@/components/GitHubCalendar";
 import SkillDotSection from "@/components/SkillDotSection";
+import CareerTimeline from "@/components/CareerTimeline";
+
+const career = [
+  {
+    period: "2024.10 – 現在",
+    company: "株式会社Propally",
+    role: "フルスタックエンジニア",
+    type: "freelance" as const,
+    description: "個人事業主として副業参画。フルスタックエンジニアとしてプロダクト開発に携わる。",
+    tags: ["Ruby on Rails"],
+  },
+  {
+    period: "2021.04 – 現在",
+    company: "ARアドバンストテクノロジ株式会社",
+    role: "Webアプリケーションエンジニア / 課長代理",
+    description: "メンバーとして入社後、チームリーダー・課長代理へ昇格。フロントエンドを中心に、バックエンドからインフラまで幅広くWebアプリケーション開発を担当。",
+    tags: ["React", "MUI", "TypeScript", "OpenAPI", "AWS"],
+  },
+];
 
 const skills = [
   {
@@ -72,7 +91,7 @@ export default function Profile() {
     .map(({ content: _, ...summary }) => summary);
 
   return (
-    <div className="mx-auto max-w-3xl px-6">
+    <div className="mx-auto max-w-4xl px-6">
       {/* Hero */}
       <section className="pb-12 pt-8">
         <div className="mb-6 flex items-center gap-5">
@@ -97,6 +116,14 @@ export default function Profile() {
           React / Vue / Next.js / Nuxt / Ruby on Rails など
           フロントエンドからバックエンドまで幅広い技術スタックで開発しています。
         </p>
+      </section>
+
+      <Separator />
+
+      {/* Career */}
+      <section className="py-12">
+        <h2 className="mb-8 text-xl font-bold">Career</h2>
+        <CareerTimeline entries={career} />
       </section>
 
       <Separator />

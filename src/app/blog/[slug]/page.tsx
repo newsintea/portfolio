@@ -30,7 +30,7 @@ export default async function BlogPostPage({ params }: Props) {
   if (!post) notFound();
 
   return (
-    <div className="mx-auto max-w-3xl px-6 py-20">
+    <div className="mx-auto max-w-4xl px-6 py-20">
       <Button variant="ghost" size="sm" asChild>
         <Link href="/blog">&larr; Back to Blog</Link>
       </Button>

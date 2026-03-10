@@ -10,6 +10,7 @@ const navItems = [
   { href: "/", label: "Home" },
   { href: "/profile", label: "Profile" },
   { href: "/blog", label: "Blog" },
+  { href: "/visited", label: "Visited" },
 ];
 
 export default function Header() {
@@ -17,7 +18,7 @@ export default function Header() {
 
   return (
     <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-sm">
-      <nav className="mx-auto flex max-w-3xl items-center justify-between px-6 py-3">
+      <nav className="mx-auto flex max-w-4xl items-center justify-between px-6 py-3">
         <Link href="/" className="text-lg font-bold tracking-tight">
           Portfolio
         </Link>
