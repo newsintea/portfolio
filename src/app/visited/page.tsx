@@ -1,9 +1,10 @@
-import { trips } from "@/data/trips";
+import { getTrips } from "@/lib/trips";
 import VisitedMapLoader from "@/components/VisitedMapLoader";
 
 export const metadata = { title: "Visited" };
 
-export default function VisitedPage() {
+export default async function VisitedPage() {
+  const trips = await getTrips();
   return (
     <div
       className="mx-auto flex max-w-4xl flex-col px-6 pt-8 pb-6"

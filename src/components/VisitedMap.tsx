@@ -5,16 +5,7 @@ import { MapContainer, TileLayer, Marker, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { useTheme } from "next-themes";
-import type { Trip, TripLocation, Label } from "@/data/trips";
-
-const LABEL_STYLES: Record<Label, string> = {
-  観光:     "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
-  自然:     "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300",
-  グルメ:   "bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300",
-  温泉:     "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300",
-  文化:     "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300",
-  ドライブ: "bg-slate-100 text-slate-700 dark:bg-slate-700/40 dark:text-slate-300",
-};
+import type { Trip, Place } from "@/lib/trips";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 const INITIAL_CENTER: [number, number] = [36.2048, 138.2529];
@@ -39,11 +30,11 @@ function MapController({ trip }: { trip: Trip | null }) {
       map.setView(INITIAL_CENTER, INITIAL_ZOOM, { animate: true });
       return;
     }
-    if (trip.locations.length === 1) {
-      map.setView([trip.locations[0].lat, trip.locations[0].lng], 10, { animate: true });
+    if (trip.places.length === 1) {
+      map.setView([trip.places[0].lat, trip.places[0].lng], 10, { animate: true });
       return;
     }
-    const bounds = L.latLngBounds(trip.locations.map((l) => [l.lat, l.lng]));
+    const bounds = L.latLngBounds(trip.places.map((p) => [p.lat, p.lng]));
     map.fitBounds(bounds, { padding: [60, 60], maxZoom: 10, animate: true });
   }, [map, trip]);
   return null;
@@ -70,6 +61,7 @@ function ResetViewButton() {
             height: "30px",
             textDecoration: "none",
             color: "#333",
+            cursor: "pointer",
           }}
         >
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -82,10 +74,7 @@ function ResetViewButton() {
   );
 }
 
-// ── Sidebar: Location detail ─────────────────────────────────────────────────
-type ActiveLocation = { trip: Trip; location: TripLocation };
-
-// ── 案A: カルーセル ──────────────────────────────────────────────────────────
+// ── Photo carousel ────────────────────────────────────────────────────────────
 function PhotoCarousel({ photos, alt }: { photos: string[]; alt: string }) {
   const [index, setIndex] = useState(0);
   if (photos.length === 0) return null;
@@ -97,20 +86,20 @@ function PhotoCarousel({ photos, alt }: { photos: string[]; alt: string }) {
           <>
             <button
               onClick={() => setIndex((i) => (i - 1 + photos.length) % photos.length)}
-              className="absolute left-1.5 top-1/2 -translate-y-1/2 rounded-full bg-black/40 p-1 text-white hover:bg-black/60"
+              className="absolute left-1.5 top-1/2 -translate-y-1/2 cursor-pointer rounded-full bg-black/40 p-1 text-white hover:bg-black/60"
             >
               <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M15 18l-6-6 6-6"/></svg>
             </button>
             <button
               onClick={() => setIndex((i) => (i + 1) % photos.length)}
-              className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-full bg-black/40 p-1 text-white hover:bg-black/60"
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 cursor-pointer rounded-full bg-black/40 p-1 text-white hover:bg-black/60"
             >
               <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M9 18l6-6-6-6"/></svg>
             </button>
             <div className="absolute bottom-2 left-1/2 flex -translate-x-1/2 gap-1">
               {photos.map((_, i) => (
                 <button key={i} onClick={() => setIndex(i)}
-                  className={`h-1.5 rounded-full transition-all ${i === index ? "w-3 bg-white" : "w-1.5 bg-white/50"}`}
+                  className={`h-1.5 cursor-pointer rounded-full transition-all ${i === index ? "w-3 bg-white" : "w-1.5 bg-white/50"}`}
                 />
               ))}
             </div>
@@ -122,6 +111,8 @@ function PhotoCarousel({ photos, alt }: { photos: string[]; alt: string }) {
 }
 
 // ── 詳細ビュー ────────────────────────────────────────────────────────────────
+type ActiveLocation = { trip: Trip; place: Place };
+
 function LocationDetail({
   active,
   onBack,
@@ -129,14 +120,14 @@ function LocationDetail({
   active: ActiveLocation;
   onBack: () => void;
 }) {
-  const { trip, location } = active;
-  const photos = location.photos ?? [];
+  const { trip, place } = active;
+  const photoUrls = (place.photos ?? []).map((p) => p.url);
 
   return (
     <div className="flex h-full flex-col overflow-y-auto">
       <button
         onClick={onBack}
-        className="mb-3 flex shrink-0 items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+        className="mb-3 flex shrink-0 cursor-pointer items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
       >
         <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M19 12H5M12 5l-7 7 7 7" />
@@ -144,15 +135,24 @@ function LocationDetail({
         戻る
       </button>
 
-      <PhotoCarousel photos={photos} alt={location.name} />
+      <PhotoCarousel photos={photoUrls} alt={place.name} />
 
-      <p className="mb-1.5 text-sm font-semibold leading-snug">{location.name}</p>
+      <p className="mb-1.5 text-sm font-semibold leading-snug">{place.name}</p>
 
-      {location.labels && location.labels.length > 0 && (
+      {place.categories && place.categories.length > 0 && (
         <div className="mb-2 flex flex-wrap gap-1">
-          {location.labels.map((label) => (
-            <span key={label} className={`rounded-full px-2 py-0.5 text-xs font-medium ${LABEL_STYLES[label]}`}>
-              {label}
+          {place.categories.map((cat) => (
+            <span
+              key={cat.id}
+              className="rounded-full px-2 py-0.5 text-xs font-medium"
+              style={
+                cat.color
+                  ? { backgroundColor: `${cat.color}20`, color: cat.color }
+                  : undefined
+              }
+            >
+              {cat.icon && <span className="mr-0.5">{cat.icon}</span>}
+              {cat.name}
             </span>
           ))}
         </div>
@@ -162,12 +162,12 @@ function LocationDetail({
         <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: trip.color }} />
         <p className="text-xs text-muted-foreground">
           {trip.title}
-          {location.date && <span> · {location.date}</span>}
+          {place.visited_at && <span> · {place.visited_at}</span>}
         </p>
       </div>
 
-      {location.memo && (
-        <p className="text-xs leading-relaxed text-muted-foreground">{location.memo}</p>
+      {place.memo && (
+        <p className="text-xs leading-relaxed text-muted-foreground">{place.memo}</p>
       )}
     </div>
   );
@@ -178,26 +178,25 @@ function TripList({
   trips,
   openTripIds,
   onToggle,
-  onLocationClick,
+  onPlaceClick,
 }: {
   trips: Trip[];
   openTripIds: Set<string>;
   onToggle: (id: string) => void;
-  onLocationClick: (trip: Trip, location: TripLocation) => void;
+  onPlaceClick: (trip: Trip, place: Place) => void;
 }) {
-  // Group by year, newest first
   const byYear = trips.reduce<Record<string, Trip[]>>((acc, trip) => {
-    const year = trip.date.split(".")[0];
+    const year = trip.started_at.split("-")[0];
     (acc[year] ??= []).push(trip);
     return acc;
   }, {});
   const years = Object.keys(byYear).sort((a, b) => Number(b) - Number(a));
-  const totalLocations = trips.reduce((s, t) => s + t.locations.length, 0);
+  const totalPlaces = trips.reduce((s, t) => s + t.places.length, 0);
 
   return (
     <>
       <p className="mb-4 text-xs text-muted-foreground">
-        {trips.length} trips · {totalLocations} places
+        {trips.length} trips · {totalPlaces} places
       </p>
 
       <div className="space-y-5">
@@ -207,12 +206,12 @@ function TripList({
             <div className="space-y-0.5">
               {byYear[year].map((trip) => {
                 const isOpen = openTripIds.has(trip.id);
+                const month = parseInt(trip.started_at.split("-")[1], 10);
                 return (
                   <div key={trip.id}>
-                    {/* Accordion header */}
                     <button
                       onClick={() => onToggle(trip.id)}
-                      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-muted"
+                      className="flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-muted"
                     >
                       <svg
                         viewBox="0 0 24 24"
@@ -233,23 +232,22 @@ function TripList({
                       />
                       <span className="min-w-0 truncate font-medium">{trip.title}</span>
                       <span className="ml-auto shrink-0 text-xs text-muted-foreground">
-                        {trip.date.split(".")[1]}月
+                        {month}月
                       </span>
                     </button>
 
-                    {/* Accordion body */}
                     {isOpen && (
                       <div className="ml-4 mt-1 space-y-1">
-                        {trip.locations.map((loc) => (
+                        {trip.places.map((place) => (
                           <button
-                            key={loc.name}
-                            onClick={() => onLocationClick(trip, loc)}
-                            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-muted"
+                            key={place.id}
+                            onClick={() => onPlaceClick(trip, place)}
+                            className="flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-muted"
                           >
-                            {loc.photos?.[0] ? (
+                            {place.photos?.[0]?.url ? (
                               <img
-                                src={loc.photos[0]}
-                                alt={loc.name}
+                                src={place.photos[0].url}
+                                alt={place.name}
                                 className="h-9 w-9 shrink-0 rounded object-cover"
                               />
                             ) : (
@@ -259,7 +257,7 @@ function TripList({
                               />
                             )}
                             <span className="min-w-0 truncate text-xs font-medium">
-                              {loc.name}
+                              {place.name}
                             </span>
                           </button>
                         ))}
@@ -300,31 +298,21 @@ export default function VisitedMap({ trips }: { trips: Trip[] }) {
     });
   };
 
-  const handleMarkerClick = (trip: Trip, location: TripLocation) => {
-    setActiveLocation({ trip, location });
-  };
-
-  const handleBack = () => {
-    setActiveLocation(null);
-  };
-
   return (
     <div className="flex h-full overflow-hidden rounded-lg border border-border">
-      {/* Sidebar */}
       <aside className="w-64 shrink-0 overflow-y-auto border-r border-border bg-background p-4">
         {activeLocation ? (
-          <LocationDetail active={activeLocation} onBack={handleBack} />
+          <LocationDetail active={activeLocation} onBack={() => setActiveLocation(null)} />
         ) : (
           <TripList
             trips={trips}
             openTripIds={openTripIds}
             onToggle={toggleTrip}
-            onLocationClick={handleMarkerClick}
+            onPlaceClick={(trip, place) => setActiveLocation({ trip, place })}
           />
         )}
       </aside>
 
-      {/* Map */}
       <MapContainer
         center={INITIAL_CENTER}
         zoom={INITIAL_ZOOM}
@@ -340,17 +328,17 @@ export default function VisitedMap({ trips }: { trips: Trip[] }) {
         <ResetViewButton />
 
         {trips.flatMap((trip) =>
-          trip.locations.map((location) => (
+          trip.places.map((place) => (
             <Marker
-              key={`${trip.id}-${location.name}`}
-              position={[location.lat, location.lng]}
+              key={place.id}
+              position={[place.lat, place.lng]}
               icon={createMarkerIcon(
                 trip.color,
-                activeLocation?.location.name === location.name &&
+                activeLocation?.place.id === place.id &&
                   activeLocation?.trip.id === trip.id
               )}
               eventHandlers={{
-                click: () => handleMarkerClick(trip, location),
+                click: () => setActiveLocation({ trip, place }),
               }}
             />
           ))
