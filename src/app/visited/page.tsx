@@ -11,7 +11,7 @@ export default async function VisitedPage() {
       style={{ height: "calc(100svh - 57px)" }}
     >
       <h2 className="mb-4 shrink-0 text-xl font-bold">Visited</h2>
-      <div className="min-h-0 flex-1">
+      <div className="min-h-0 flex-1" style={{ isolation: "isolate" }}>
         <VisitedMapLoader trips={trips} />
       </div>
     </div>
