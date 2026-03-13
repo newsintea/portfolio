@@ -13,20 +13,39 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { trip_id, name, lat, lng, prefecture, visited_at, memo, rating, is_public, sort_order } = body;
+  const { trip_id, name, lat, lng, prefecture, visited_at, memo, rating, is_public, sort_order, categories } = body;
 
   if (!name || lat == null || lng == null) {
     return NextResponse.json({ error: "Missing required fields: name, lat, lng" }, { status: 400 });
   }
 
-  const { data, error } = await supabaseAdmin
-    .from("places")
+  // カテゴリ名 → UUID 解決
+  let category_ids: string[] = [];
+  if (categories && categories.length > 0) {
+    const { data: cats } = await supabaseAdmin
+      .from("categories")
+      .select("id, name")
+      .in("name", categories);
+    category_ids = (cats ?? []).map((c: { id: string }) => c.id);
+  }
+
+  // location 作成
+  const { data: location, error: locationError } = await supabaseAdmin
+    .from("locations")
+    .insert({ name, lat, lng, prefecture: prefecture ?? null, category_ids })
+    .select("id")
+    .single();
+
+  if (locationError) {
+    return NextResponse.json({ error: locationError.message }, { status: 500 });
+  }
+
+  // visit 作成
+  const { data: visit, error: visitError } = await supabaseAdmin
+    .from("visits")
     .insert({
+      location_id: location.id,
       trip_id: trip_id ?? null,
-      name,
-      lat,
-      lng,
-      prefecture: prefecture ?? null,
       visited_at: visited_at ?? null,
       memo: memo ?? null,
       rating: rating ?? null,
@@ -36,9 +55,9 @@ export async function POST(req: NextRequest) {
     .select("id")
     .single();
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (visitError) {
+    return NextResponse.json({ error: visitError.message }, { status: 500 });
   }
 
-  return NextResponse.json({ id: data.id }, { status: 201 });
+  return NextResponse.json({ id: visit.id, location_id: location.id }, { status: 201 });
 }

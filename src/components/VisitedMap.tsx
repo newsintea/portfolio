@@ -5,7 +5,7 @@ import { MapContainer, TileLayer, Marker, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { useTheme } from "next-themes";
-import type { Trip, Place } from "@/lib/trips";
+import type { Trip, Visit } from "@/lib/trips";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 const INITIAL_CENTER: [number, number] = [36.2048, 138.2529];
@@ -30,11 +30,11 @@ function MapController({ trip }: { trip: Trip | null }) {
       map.setView(INITIAL_CENTER, INITIAL_ZOOM, { animate: true });
       return;
     }
-    if (trip.places.length === 1) {
-      map.setView([trip.places[0].lat, trip.places[0].lng], 10, { animate: true });
+    if (trip.visits.length === 1) {
+      map.setView([trip.visits[0].location.lat, trip.visits[0].location.lng], 10, { animate: true });
       return;
     }
-    const bounds = L.latLngBounds(trip.places.map((p) => [p.lat, p.lng]));
+    const bounds = L.latLngBounds(trip.visits.map((v) => [v.location.lat, v.location.lng]));
     map.fitBounds(bounds, { padding: [60, 60], maxZoom: 10, animate: true });
   }, [map, trip]);
   return null;
@@ -111,17 +111,17 @@ function PhotoCarousel({ photos, alt }: { photos: string[]; alt: string }) {
 }
 
 // ── 詳細ビュー ────────────────────────────────────────────────────────────────
-type ActiveLocation = { trip: Trip; place: Place };
+type ActiveLocation = { trip: Trip; visit: Visit };
 
-function LocationDetail({
+function VisitDetail({
   active,
   onBack,
 }: {
   active: ActiveLocation;
   onBack: () => void;
 }) {
-  const { trip, place } = active;
-  const photoUrls = (place.photos ?? []).map((p) => p.url);
+  const { trip, visit } = active;
+  const photoUrls = (visit.photos ?? []).map((p) => p.url);
 
   return (
     <div className="flex h-full flex-col overflow-y-auto">
@@ -135,13 +135,13 @@ function LocationDetail({
         戻る
       </button>
 
-      <PhotoCarousel photos={photoUrls} alt={place.name} />
+      <PhotoCarousel photos={photoUrls} alt={visit.location.name} />
 
-      <p className="mb-1.5 text-sm font-semibold leading-snug">{place.name}</p>
+      <p className="mb-1.5 text-sm font-semibold leading-snug">{visit.location.name}</p>
 
-      {place.categories && place.categories.length > 0 && (
+      {visit.location.categories && visit.location.categories.length > 0 && (
         <div className="mb-2 flex flex-wrap gap-1">
-          {place.categories.map((cat) => (
+          {visit.location.categories.map((cat) => (
             <span
               key={cat.id}
               className="rounded-full px-2 py-0.5 text-xs font-medium"
@@ -162,12 +162,12 @@ function LocationDetail({
         <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: trip.color }} />
         <p className="text-xs text-muted-foreground">
           {trip.title}
-          {place.visited_at && <span> · {place.visited_at}</span>}
+          {visit.visited_at && <span> · {visit.visited_at}</span>}
         </p>
       </div>
 
-      {place.memo && (
-        <p className="text-xs leading-relaxed text-muted-foreground">{place.memo}</p>
+      {visit.memo && (
+        <p className="text-xs leading-relaxed text-muted-foreground">{visit.memo}</p>
       )}
     </div>
   );
@@ -178,12 +178,12 @@ function TripList({
   trips,
   openTripIds,
   onToggle,
-  onPlaceClick,
+  onVisitClick,
 }: {
   trips: Trip[];
   openTripIds: Set<string>;
   onToggle: (id: string) => void;
-  onPlaceClick: (trip: Trip, place: Place) => void;
+  onVisitClick: (trip: Trip, visit: Visit) => void;
 }) {
   const byYear = trips.reduce<Record<string, Trip[]>>((acc, trip) => {
     const year = trip.started_at.split("-")[0];
@@ -191,12 +191,12 @@ function TripList({
     return acc;
   }, {});
   const years = Object.keys(byYear).sort((a, b) => Number(b) - Number(a));
-  const totalPlaces = trips.reduce((s, t) => s + t.places.length, 0);
+  const totalVisits = trips.reduce((s, t) => s + t.visits.length, 0);
 
   return (
     <>
       <p className="mb-4 text-xs text-muted-foreground">
-        {trips.length} trips · {totalPlaces} places
+        {trips.length} trips · {totalVisits} places
       </p>
 
       <div className="space-y-5">
@@ -238,16 +238,16 @@ function TripList({
 
                     {isOpen && (
                       <div className="ml-4 mt-1 space-y-1">
-                        {trip.places.map((place) => (
+                        {trip.visits.map((visit) => (
                           <button
-                            key={place.id}
-                            onClick={() => onPlaceClick(trip, place)}
+                            key={visit.id}
+                            onClick={() => onVisitClick(trip, visit)}
                             className="flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-muted"
                           >
-                            {place.photos?.[0]?.url ? (
+                            {visit.photos?.[0]?.url ? (
                               <img
-                                src={place.photos[0].url}
-                                alt={place.name}
+                                src={visit.photos[0].url}
+                                alt={visit.location.name}
                                 className="h-9 w-9 shrink-0 rounded object-cover"
                               />
                             ) : (
@@ -257,7 +257,7 @@ function TripList({
                               />
                             )}
                             <span className="min-w-0 truncate text-xs font-medium">
-                              {place.name}
+                              {visit.location.name}
                             </span>
                           </button>
                         ))}
@@ -302,13 +302,13 @@ export default function VisitedMap({ trips }: { trips: Trip[] }) {
     <div className="flex h-full overflow-hidden rounded-lg border border-border">
       <aside className="w-64 shrink-0 overflow-y-auto border-r border-border bg-background p-4">
         {activeLocation ? (
-          <LocationDetail active={activeLocation} onBack={() => setActiveLocation(null)} />
+          <VisitDetail active={activeLocation} onBack={() => setActiveLocation(null)} />
         ) : (
           <TripList
             trips={trips}
             openTripIds={openTripIds}
             onToggle={toggleTrip}
-            onPlaceClick={(trip, place) => setActiveLocation({ trip, place })}
+            onVisitClick={(trip, visit) => setActiveLocation({ trip, visit })}
           />
         )}
       </aside>
@@ -328,17 +328,17 @@ export default function VisitedMap({ trips }: { trips: Trip[] }) {
         <ResetViewButton />
 
         {trips.flatMap((trip) =>
-          trip.places.map((place) => (
+          trip.visits.map((visit) => (
             <Marker
-              key={place.id}
-              position={[place.lat, place.lng]}
+              key={visit.id}
+              position={[visit.location.lat, visit.location.lng]}
               icon={createMarkerIcon(
                 trip.color,
-                activeLocation?.place.id === place.id &&
+                activeLocation?.visit.id === visit.id &&
                   activeLocation?.trip.id === trip.id
               )}
               eventHandlers={{
-                click: () => setActiveLocation({ trip, place }),
+                click: () => setActiveLocation({ trip, visit }),
               }}
             />
           ))

@@ -13,16 +13,16 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { place_id, url, caption, sort_order } = body;
+  const { visit_id, url, caption, sort_order } = body;
 
-  if (!place_id || !url) {
-    return NextResponse.json({ error: "Missing required fields: place_id, url" }, { status: 400 });
+  if (!visit_id || !url) {
+    return NextResponse.json({ error: "Missing required fields: visit_id, url" }, { status: 400 });
   }
 
   const { data, error } = await supabaseAdmin
     .from("photos")
     .insert({
-      place_id,
+      visit_id,
       url,
       caption: caption ?? null,
       sort_order: sort_order ?? 0,
