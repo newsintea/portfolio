@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import type { Trip } from "@/lib/trips";
+import type { Trip, LocationEntry } from "@/lib/trips";
 
 const VisitedMap = dynamic(() => import("@/components/VisitedMap"), {
   ssr: false,
@@ -12,6 +12,12 @@ const VisitedMap = dynamic(() => import("@/components/VisitedMap"), {
   ),
 });
 
-export default function VisitedMapLoader({ trips }: { trips: Trip[] }) {
-  return <VisitedMap trips={trips} />;
+export default function VisitedMapLoader({
+  trips,
+  locations,
+}: {
+  trips: Trip[];
+  locations: LocationEntry[];
+}) {
+  return <VisitedMap trips={trips} locations={locations} />;
 }

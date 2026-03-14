@@ -1,15 +1,16 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { MapContainer, TileLayer, Marker, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { useTheme } from "next-themes";
-import type { Trip, Visit } from "@/lib/trips";
+import type { Trip, Visit, Category, LocationEntry } from "@/lib/trips";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 const INITIAL_CENTER: [number, number] = [36.2048, 138.2529];
 const INITIAL_ZOOM = 5;
+const DEFAULT_MARKER_COLOR = "#6B7280";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 type ActiveVisit = { trip: Trip; visit: Visit };
@@ -34,6 +35,10 @@ function getUniqueLocations(trips: Trip[]): ActiveVisit[] {
   );
 }
 
+function getLocationColor(loc: LocationEntry): string {
+  return loc.categories[0]?.color ?? DEFAULT_MARKER_COLOR;
+}
+
 // ── Marker icon ──────────────────────────────────────────────────────────────
 function createMarkerIcon(color: string, active = false) {
   const size = active ? 16 : 12;
@@ -46,15 +51,23 @@ function createMarkerIcon(color: string, active = false) {
 }
 
 // ── Map sub-components ───────────────────────────────────────────────────────
-function MapController({ position }: { position: [number, number] | null }) {
+function MapController({
+  position,
+  bounds,
+}: {
+  position: [number, number] | null;
+  bounds: [number, number][] | null;
+}) {
   const map = useMap();
   useEffect(() => {
-    if (!position) {
+    if (position) {
+      map.setView(position, 12, { animate: true });
+    } else if (bounds && bounds.length > 0) {
+      map.fitBounds(bounds as L.LatLngBoundsExpression, { animate: true, padding: [40, 40], maxZoom: 9 });
+    } else {
       map.setView(INITIAL_CENTER, INITIAL_ZOOM, { animate: true });
-      return;
     }
-    map.setView(position, 12, { animate: true });
-  }, [map, position]);
+  }, [map, position, bounds]);
   return null;
 }
 
@@ -128,7 +141,7 @@ function PhotoCarousel({ photos, alt }: { photos: string[]; alt: string }) {
   );
 }
 
-// ── 詳細ビュー（複数 visit 対応）────────────────────────────────────────────
+// ── Trip view: 詳細ビュー（複数 visit 対応）────────────────────────────────────────────
 function LocationDetail({
   activeVisits,
   onBack,
@@ -184,6 +197,70 @@ function LocationDetail({
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+// ── Places view: 詳細ビュー ────────────────────────────────────────────────────
+function PlaceDetail({
+  location: loc,
+  onBack,
+}: {
+  location: LocationEntry;
+  onBack: () => void;
+}) {
+  return (
+    <div className="flex h-full flex-col overflow-y-auto">
+      <button
+        onClick={onBack}
+        className="mb-3 flex shrink-0 cursor-pointer items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+      >
+        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M19 12H5M12 5l-7 7 7 7" />
+        </svg>
+        戻る
+      </button>
+
+      <p className="mb-1.5 text-sm font-semibold leading-snug">{loc.name}</p>
+
+      {loc.categories.length > 0 && (
+        <div className="mb-3 flex flex-wrap gap-1">
+          {loc.categories.map((cat) => (
+            <span
+              key={cat.id}
+              className="rounded-full px-2 py-0.5 text-xs font-medium"
+              style={cat.color ? { backgroundColor: `${cat.color}20`, color: cat.color } : undefined}
+            >
+              {cat.icon && <span className="mr-0.5">{cat.icon}</span>}
+              {cat.name}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {loc.visits.length > 0 ? (
+        <div className="space-y-5">
+          {loc.visits.map((visit) => (
+            <div key={visit.id}>
+              {visit.trip && (
+                <div className="mb-2 flex items-center gap-1.5">
+                  <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: visit.trip.color }} />
+                  <p className="text-xs text-muted-foreground">
+                    {visit.trip.title}
+                    {visit.visited_at && <span> · {visit.visited_at}</span>}
+                  </p>
+                </div>
+              )}
+              <PhotoCarousel photos={visit.photos.map((p) => p.url)} alt={loc.name} />
+              {visit.memo && (
+                <p className="text-xs leading-relaxed text-muted-foreground">{visit.memo}</p>
+              )}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-xs text-muted-foreground">まだ訪問記録はありません</p>
+      )}
     </div>
   );
 }
@@ -298,16 +375,183 @@ function TripList({
   );
 }
 
+// ── Sidebar: Place list (category filter) ─────────────────────────────────────
+function PlaceList({
+  locations,
+  onLocationClick,
+}: {
+  locations: LocationEntry[];
+  onLocationClick: (loc: LocationEntry) => void;
+}) {
+  const [selectedCatId, setSelectedCatId] = useState<string | null>(null);
+
+  const categories = useMemo<Category[]>(() => {
+    const seen = new Set<string>();
+    const result: Category[] = [];
+    for (const loc of locations) {
+      for (const cat of loc.categories) {
+        if (!seen.has(cat.id)) {
+          seen.add(cat.id);
+          result.push(cat);
+        }
+      }
+    }
+    return result;
+  }, [locations]);
+
+  const filtered = selectedCatId
+    ? locations.filter((loc) => loc.categories.some((c) => c.id === selectedCatId))
+    : locations;
+
+  return (
+    <>
+      <p className="mb-3 text-xs text-muted-foreground">{locations.length} places</p>
+
+      {/* Category filter */}
+      <div className="mb-3 flex flex-wrap gap-1">
+        <button
+          onClick={() => setSelectedCatId(null)}
+          className={`cursor-pointer rounded-full px-2 py-0.5 text-xs font-medium transition-colors ${
+            selectedCatId === null
+              ? "bg-foreground text-background"
+              : "bg-muted text-muted-foreground hover:bg-muted/80"
+          }`}
+        >
+          All
+        </button>
+        {categories.map((cat) => (
+          <button
+            key={cat.id}
+            onClick={() => setSelectedCatId((prev) => (prev === cat.id ? null : cat.id))}
+            className={`cursor-pointer rounded-full px-2 py-0.5 text-xs font-medium transition-colors ${
+              selectedCatId === cat.id ? "ring-2 ring-offset-1" : "hover:opacity-80"
+            }`}
+            style={
+              cat.color
+                ? {
+                    backgroundColor: selectedCatId === cat.id ? cat.color : `${cat.color}20`,
+                    color: selectedCatId === cat.id ? "white" : cat.color,
+                    ...(selectedCatId === cat.id ? { ringColor: cat.color } : {}),
+                  }
+                : undefined
+            }
+          >
+            {cat.icon && <span className="mr-0.5">{cat.icon}</span>}
+            {cat.name}
+          </button>
+        ))}
+      </div>
+
+      {/* Location list */}
+      <div className="space-y-0.5">
+        {filtered.map((loc) => (
+          <button
+            key={loc.id}
+            onClick={() => onLocationClick(loc)}
+            className="flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-muted"
+          >
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-xs font-medium">{loc.name}</span>
+              {loc.prefecture && (
+                <span className="text-xs text-muted-foreground">{loc.prefecture}</span>
+              )}
+            </span>
+            {loc.categories.length > 0 && (
+              <div className="flex shrink-0 gap-0.5">
+                {loc.categories.slice(0, 2).map((cat) => (
+                  <span
+                    key={cat.id}
+                    className="rounded-full px-1.5 py-0.5 text-xs"
+                    style={cat.color ? { backgroundColor: `${cat.color}20`, color: cat.color } : undefined}
+                  >
+                    {cat.icon ?? cat.name}
+                  </span>
+                ))}
+              </div>
+            )}
+          </button>
+        ))}
+      </div>
+    </>
+  );
+}
+
+// ── View toggle ───────────────────────────────────────────────────────────────
+function ViewToggle({
+  view,
+  onChange,
+}: {
+  view: "trips" | "places";
+  onChange: (v: "trips" | "places") => void;
+}) {
+  return (
+    <div className="mb-4 flex shrink-0 rounded-md border border-border p-0.5">
+      <button
+        onClick={() => onChange("trips")}
+        className={`flex-1 cursor-pointer rounded py-1 text-xs font-medium transition-colors ${
+          view === "trips" ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"
+        }`}
+      >
+        Trips
+      </button>
+      <button
+        onClick={() => onChange("places")}
+        className={`flex-1 cursor-pointer rounded py-1 text-xs font-medium transition-colors ${
+          view === "places" ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"
+        }`}
+      >
+        Places
+      </button>
+    </div>
+  );
+}
+
 // ── Main component ───────────────────────────────────────────────────────────
-export default function VisitedMap({ trips }: { trips: Trip[] }) {
+export default function VisitedMap({
+  trips,
+  locations,
+}: {
+  trips: Trip[];
+  locations: LocationEntry[];
+}) {
+  const [view, setView] = useState<"trips" | "places">("trips");
+
+  // Trip view state
   const [openTripId, setOpenTripId] = useState<string | null>(null);
-  const sidebarRef = useRef<HTMLElement | null>(null);
   const [activeVisits, setActiveVisits] = useState<ActiveVisit[] | null>(null);
+
+  // Places view state
+  const [activeLocation, setActiveLocation] = useState<LocationEntry | null>(null);
+
+  const sidebarRef = useRef<HTMLElement | null>(null);
   const { resolvedTheme } = useTheme();
 
-  const activePosition = activeVisits
-    ? [activeVisits[0].visit.location.lat, activeVisits[0].visit.location.lng] as [number, number]
-    : null;
+  const handleViewChange = (v: "trips" | "places") => {
+    setView(v);
+    setOpenTripId(null);
+    setActiveVisits(null);
+    setActiveLocation(null);
+  };
+
+  // Map controller inputs
+  const activePosition: [number, number] | null = useMemo(() => {
+    if (view === "trips" && activeVisits) {
+      return [activeVisits[0].visit.location.lat, activeVisits[0].visit.location.lng];
+    }
+    if (view === "places" && activeLocation) {
+      return [activeLocation.lat, activeLocation.lng];
+    }
+    return null;
+  }, [view, activeVisits, activeLocation]);
+
+  const openTripBounds = useMemo<[number, number][] | null>(() => {
+    if (view !== "trips" || activeVisits || !openTripId) return null;
+    const trip = trips.find((t) => t.id === openTripId);
+    if (!trip) return null;
+    return trip.visits
+      .filter((v) => v.location.lat && v.location.lng)
+      .map((v) => [v.location.lat, v.location.lng]);
+  }, [view, openTripId, activeVisits, trips]);
 
   const tileUrl =
     resolvedTheme === "dark"
@@ -322,22 +566,44 @@ export default function VisitedMap({ trips }: { trips: Trip[] }) {
     setActiveVisits(getVisitsForLocation(trips, visit.location_id));
   };
 
+  const handlePlaceClick = (loc: LocationEntry) => {
+    setActiveLocation(loc);
+  };
+
   const uniqueLocations = getUniqueLocations(trips);
+
+  const inDetail = view === "trips" ? !!activeVisits : !!activeLocation;
 
   return (
     <div className="flex h-full overflow-hidden rounded-lg border border-border">
-      <aside ref={sidebarRef} className="w-64 shrink-0 overflow-y-auto border-r border-border bg-background p-4">
-        {activeVisits ? (
-          <LocationDetail activeVisits={activeVisits} onBack={() => setActiveVisits(null)} />
-        ) : (
-          <TripList
-            trips={trips}
-            openTripId={openTripId}
-            onToggle={toggleTrip}
-            onVisitClick={handleVisitClick}
-            sidebarRef={sidebarRef}
-          />
+      <aside ref={sidebarRef} className="flex w-64 shrink-0 flex-col overflow-hidden border-r border-border bg-background">
+        {/* Header: toggle (hidden in detail view) */}
+        {!inDetail && (
+          <div className="shrink-0 px-4 pt-4 pb-0">
+            <ViewToggle view={view} onChange={handleViewChange} />
+          </div>
         )}
+
+        {/* Scrollable content */}
+        <div className={`min-h-0 flex-1 overflow-y-auto px-4 pb-4 ${inDetail ? "pt-4" : "pt-2"}`}>
+          {view === "trips" ? (
+            activeVisits ? (
+              <LocationDetail activeVisits={activeVisits} onBack={() => setActiveVisits(null)} />
+            ) : (
+              <TripList
+                trips={trips}
+                openTripId={openTripId}
+                onToggle={toggleTrip}
+                onVisitClick={handleVisitClick}
+                sidebarRef={sidebarRef}
+              />
+            )
+          ) : activeLocation ? (
+            <PlaceDetail location={activeLocation} onBack={() => setActiveLocation(null)} />
+          ) : (
+            <PlaceList locations={locations} onLocationClick={handlePlaceClick} />
+          )}
+        </div>
       </aside>
 
       <MapContainer
@@ -351,22 +617,38 @@ export default function VisitedMap({ trips }: { trips: Trip[] }) {
           url={tileUrl}
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
         />
-        <MapController position={activePosition} />
+        <MapController position={activePosition} bounds={openTripBounds} />
         <ResetViewButton />
 
-        {uniqueLocations.map(({ trip, visit }) => {
-          const isActive = activeVisits?.some((av) => av.visit.location_id === visit.location_id) ?? false;
-          return (
-            <Marker
-              key={visit.location_id}
-              position={[visit.location.lat, visit.location.lng]}
-              icon={createMarkerIcon(trip.color, isActive)}
-              eventHandlers={{
-                click: () => handleVisitClick(trip, visit),
-              }}
-            />
-          );
-        })}
+        {view === "trips" &&
+          uniqueLocations.map(({ trip, visit }) => {
+            const isActive = activeVisits?.some((av) => av.visit.location_id === visit.location_id) ?? false;
+            return (
+              <Marker
+                key={visit.location_id}
+                position={[visit.location.lat, visit.location.lng]}
+                icon={createMarkerIcon(trip.color, isActive)}
+                eventHandlers={{
+                  click: () => handleVisitClick(trip, visit),
+                }}
+              />
+            );
+          })}
+
+        {view === "places" &&
+          locations.map((loc) => {
+            const isActive = activeLocation?.id === loc.id;
+            return (
+              <Marker
+                key={loc.id}
+                position={[loc.lat, loc.lng]}
+                icon={createMarkerIcon(getLocationColor(loc), isActive)}
+                eventHandlers={{
+                  click: () => handlePlaceClick(loc),
+                }}
+              />
+            );
+          })}
       </MapContainer>
     </div>
   );

@@ -91,6 +91,70 @@ export async function getTrips(): Promise<Trip[]> {
   }));
 }
 
+export type LocationEntry = {
+  id: string;
+  name: string;
+  lat: number;
+  lng: number;
+  prefecture: string | null;
+  categories: Category[];
+  visits: Array<{
+    id: string;
+    visited_at: string | null;
+    memo: string | null;
+    rating: number | null;
+    is_public: boolean;
+    trip: { id: string; title: string; color: string } | null;
+    photos: Photo[];
+  }>;
+};
+
+export async function getLocations(): Promise<LocationEntry[]> {
+  const [{ data: locs, error }, { data: allCategories }, { data: allTrips }] = await Promise.all([
+    supabase
+      .from("locations")
+      .select(`
+        *,
+        visits (
+          id, visited_at, memo, rating, is_public, trip_id,
+          photos ( id, url, caption, sort_order )
+        )
+      `)
+      .order("name", { ascending: true })
+      .order("sort_order", { referencedTable: "visits", ascending: true })
+      .order("sort_order", { referencedTable: "visits.photos", ascending: true }),
+    supabase.from("categories").select("*"),
+    supabase.from("trips").select("id, title, color"),
+  ]);
+
+  if (error) throw new Error(error.message);
+
+  const categories = (allCategories ?? []) as Category[];
+  const tripMap = Object.fromEntries(
+    (allTrips ?? []).map((t: any) => [t.id, { id: t.id, title: t.title, color: t.color }])
+  );
+
+  return (locs ?? []).map((loc: any) => ({
+    id: loc.id,
+    name: loc.name,
+    lat: loc.lat,
+    lng: loc.lng,
+    prefecture: loc.prefecture,
+    categories: (loc.category_ids ?? [])
+      .map((id: string) => categories.find((c) => c.id === id))
+      .filter(Boolean) as Category[],
+    visits: (loc.visits ?? []).map((v: any) => ({
+      id: v.id,
+      visited_at: v.visited_at,
+      memo: v.memo,
+      rating: v.rating,
+      is_public: v.is_public,
+      trip: v.trip_id ? (tripMap[v.trip_id] ?? null) : null,
+      photos: (v.photos ?? []).sort((a: any, b: any) => a.sort_order - b.sort_order),
+    })),
+  }));
+}
+
 export async function getTripById(id: string): Promise<Trip | null> {
   const [{ data: trip, error }, { data: allCategories }] = await Promise.all([
     supabase
