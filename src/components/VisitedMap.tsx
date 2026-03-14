@@ -588,8 +588,12 @@ export default function VisitedMap({
           }}
           mapStyle={mapStyle}
           style={{ width: "100%", height: "100%" }}
+          onLoad={(e) => {
+            e.target.scrollZoom.setWheelZoomRate(1 / 100);
+            e.target.scrollZoom.setZoomRate(1 / 25);
+          }}
         >
-          <NavigationControl position="top-right" />
+          <NavigationControl position="top-right" showCompass={false} />
 
           <MapController position={activePosition} bounds={openTripBounds} />
 
