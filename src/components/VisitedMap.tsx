@@ -334,37 +334,25 @@ function TripList({
 // ── Sidebar: Place list ────────────────────────────────────────────────────────
 function PlaceList({
   locations,
+  filtered,
+  categories,
+  selectedCatId,
+  onCategoryChange,
   onLocationClick,
 }: {
   locations: LocationEntry[];
+  filtered: LocationEntry[];
+  categories: Category[];
+  selectedCatId: string | null;
+  onCategoryChange: (id: string | null) => void;
   onLocationClick: (loc: LocationEntry) => void;
 }) {
-  const [selectedCatId, setSelectedCatId] = useState<string | null>(null);
-
-  const categories = useMemo<Category[]>(() => {
-    const seen = new Set<string>();
-    const result: Category[] = [];
-    for (const loc of locations) {
-      for (const cat of loc.categories) {
-        if (!seen.has(cat.id)) {
-          seen.add(cat.id);
-          result.push(cat);
-        }
-      }
-    }
-    return result;
-  }, [locations]);
-
-  const filtered = selectedCatId
-    ? locations.filter((loc) => loc.categories.some((c) => c.id === selectedCatId))
-    : locations;
-
   return (
     <>
       <p className="mb-3 text-xs text-muted-foreground">{locations.length} places</p>
       <div className="mb-3 flex flex-wrap gap-1">
         <button
-          onClick={() => setSelectedCatId(null)}
+          onClick={() => onCategoryChange(null)}
           className={`cursor-pointer rounded-full px-2 py-0.5 text-xs font-medium transition-colors ${
             selectedCatId === null
               ? "bg-foreground text-background"
@@ -376,7 +364,7 @@ function PlaceList({
         {categories.map((cat) => (
           <button
             key={cat.id}
-            onClick={() => setSelectedCatId((prev) => (prev === cat.id ? null : cat.id))}
+            onClick={() => onCategoryChange(selectedCatId === cat.id ? null : cat.id)}
             className={`cursor-pointer rounded-full px-2 py-0.5 text-xs font-medium transition-colors ${
               selectedCatId === cat.id ? "ring-2 ring-offset-1" : "hover:opacity-80"
             }`}
@@ -469,6 +457,30 @@ export default function VisitedMap({
   const [openTripId, setOpenTripId] = useState<string | null>(null);
   const [activeVisits, setActiveVisits] = useState<ActiveVisit[] | null>(null);
   const [activeLocation, setActiveLocation] = useState<LocationEntry | null>(null);
+  const [selectedCatId, setSelectedCatId] = useState<string | null>(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  const placeCategories = useMemo<Category[]>(() => {
+    const seen = new Set<string>();
+    const result: Category[] = [];
+    for (const loc of locations) {
+      for (const cat of loc.categories) {
+        if (!seen.has(cat.id)) {
+          seen.add(cat.id);
+          result.push(cat);
+        }
+      }
+    }
+    return result;
+  }, [locations]);
+
+  const filteredLocations = useMemo(
+    () =>
+      selectedCatId
+        ? locations.filter((loc) => loc.categories.some((c) => c.id === selectedCatId))
+        : locations,
+    [locations, selectedCatId],
+  );
 
   const sidebarRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapRef>(null);
@@ -479,6 +491,7 @@ export default function VisitedMap({
     setOpenTripId(null);
     setActiveVisits(null);
     setActiveLocation(null);
+    setSelectedCatId(null);
   };
 
   const activePosition: [number, number] | null = useMemo(() => {
@@ -508,19 +521,29 @@ export default function VisitedMap({
 
   const handleVisitClick = (trip: Trip, visit: Visit) => {
     setActiveVisits(getVisitsForLocation(trips, visit.location_id));
+    setIsSidebarOpen(true);
   };
 
   const handlePlaceClick = (loc: LocationEntry) => {
     setActiveLocation(loc);
+    setIsSidebarOpen(true);
   };
 
   const uniqueLocations = getUniqueLocations(trips);
   const inDetail = view === "trips" ? !!activeVisits : !!activeLocation;
 
   return (
-    <div className="flex h-full overflow-hidden rounded-lg border border-border">
+    <div className="relative flex h-full overflow-hidden md:rounded-lg md:border md:border-border">
+      {/* Mobile: backdrop */}
+      <div
+        className={`absolute inset-0 z-10 bg-black/30 transition-opacity md:hidden ${isSidebarOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"}`}
+        onClick={() => setIsSidebarOpen(false)}
+      />
+
       {/* Sidebar */}
-      <aside className="flex w-64 shrink-0 flex-col overflow-hidden border-r border-border bg-background">
+      <aside
+        className={`absolute left-0 top-0 z-20 flex h-full w-72 flex-col overflow-hidden border-r border-border bg-background/60 backdrop-blur-md transition-transform duration-300 md:relative md:w-64 md:shrink-0 md:translate-x-0 md:bg-background md:backdrop-blur-none ${isSidebarOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full"}`}
+      >
         {!inDetail && (
           <div className="shrink-0 px-4 pt-4 pb-0">
             <ViewToggle view={view} onChange={handleViewChange} />
@@ -542,7 +565,14 @@ export default function VisitedMap({
           ) : activeLocation ? (
             <PlaceDetail location={activeLocation} onBack={() => setActiveLocation(null)} />
           ) : (
-            <PlaceList locations={locations} onLocationClick={handlePlaceClick} />
+            <PlaceList
+              locations={locations}
+              filtered={filteredLocations}
+              categories={placeCategories}
+              selectedCatId={selectedCatId}
+              onCategoryChange={setSelectedCatId}
+              onLocationClick={handlePlaceClick}
+            />
           )}
         </div>
       </aside>
@@ -562,6 +592,32 @@ export default function VisitedMap({
           <NavigationControl position="top-right" />
 
           <MapController position={activePosition} bounds={openTripBounds} />
+
+          {/* Mobile: hamburger button */}
+          <div className="absolute left-3 top-3 z-10 md:hidden">
+            <button
+              aria-label="メニューを開く"
+              onClick={() => setIsSidebarOpen(true)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: 36,
+                height: 36,
+                background: "white",
+                border: "1px solid rgba(0,0,0,0.2)",
+                borderRadius: 6,
+                cursor: "pointer",
+                boxShadow: "0 2px 6px rgba(0,0,0,0.2)",
+              }}
+            >
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#333" strokeWidth="2.5" strokeLinecap="round">
+                <line x1="3" y1="6" x2="21" y2="6" />
+                <line x1="3" y1="12" x2="21" y2="12" />
+                <line x1="3" y1="18" x2="21" y2="18" />
+              </svg>
+            </button>
+          </div>
 
           {/* Reset view button */}
           <div
@@ -626,7 +682,7 @@ export default function VisitedMap({
 
           {/* Place markers */}
           {view === "places" &&
-            locations.map((loc) => {
+            filteredLocations.map((loc) => {
               const isActive = activeLocation?.id === loc.id;
               const size = isActive ? 16 : 12;
               const color = getLocationColor(loc);
