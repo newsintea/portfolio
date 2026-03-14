@@ -11,6 +11,29 @@ import type { Trip, Visit } from "@/lib/trips";
 const INITIAL_CENTER: [number, number] = [36.2048, 138.2529];
 const INITIAL_ZOOM = 5;
 
+// ── Types ────────────────────────────────────────────────────────────────────
+type ActiveVisit = { trip: Trip; visit: Visit };
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+function getVisitsForLocation(trips: Trip[], locationId: string): ActiveVisit[] {
+  return trips.flatMap((trip) =>
+    trip.visits
+      .filter((v) => v.location_id === locationId)
+      .map((visit) => ({ trip, visit }))
+  );
+}
+
+function getUniqueLocations(trips: Trip[]): ActiveVisit[] {
+  const seen = new Set<string>();
+  return trips.flatMap((trip) =>
+    trip.visits.flatMap((visit) => {
+      if (seen.has(visit.location_id)) return [];
+      seen.add(visit.location_id);
+      return [{ trip, visit }];
+    })
+  );
+}
+
 // ── Marker icon ──────────────────────────────────────────────────────────────
 function createMarkerIcon(color: string, active = false) {
   const size = active ? 16 : 12;
@@ -23,20 +46,15 @@ function createMarkerIcon(color: string, active = false) {
 }
 
 // ── Map sub-components ───────────────────────────────────────────────────────
-function MapController({ trip }: { trip: Trip | null }) {
+function MapController({ position }: { position: [number, number] | null }) {
   const map = useMap();
   useEffect(() => {
-    if (!trip) {
+    if (!position) {
       map.setView(INITIAL_CENTER, INITIAL_ZOOM, { animate: true });
       return;
     }
-    if (trip.visits.length === 1) {
-      map.setView([trip.visits[0].location.lat, trip.visits[0].location.lng], 10, { animate: true });
-      return;
-    }
-    const bounds = L.latLngBounds(trip.visits.map((v) => [v.location.lat, v.location.lng]));
-    map.fitBounds(bounds, { padding: [60, 60], maxZoom: 10, animate: true });
-  }, [map, trip]);
+    map.setView(position, 12, { animate: true });
+  }, [map, position]);
   return null;
 }
 
@@ -110,18 +128,15 @@ function PhotoCarousel({ photos, alt }: { photos: string[]; alt: string }) {
   );
 }
 
-// ── 詳細ビュー ────────────────────────────────────────────────────────────────
-type ActiveLocation = { trip: Trip; visit: Visit };
-
-function VisitDetail({
-  active,
+// ── 詳細ビュー（複数 visit 対応）────────────────────────────────────────────
+function LocationDetail({
+  activeVisits,
   onBack,
 }: {
-  active: ActiveLocation;
+  activeVisits: ActiveVisit[];
   onBack: () => void;
 }) {
-  const { trip, visit } = active;
-  const photoUrls = (visit.photos ?? []).map((p) => p.url);
+  const location = activeVisits[0].visit.location;
 
   return (
     <div className="flex h-full flex-col overflow-y-auto">
@@ -135,21 +150,15 @@ function VisitDetail({
         戻る
       </button>
 
-      <PhotoCarousel photos={photoUrls} alt={visit.location.name} />
+      <p className="mb-1.5 text-sm font-semibold leading-snug">{location.name}</p>
 
-      <p className="mb-1.5 text-sm font-semibold leading-snug">{visit.location.name}</p>
-
-      {visit.location.categories && visit.location.categories.length > 0 && (
-        <div className="mb-2 flex flex-wrap gap-1">
-          {visit.location.categories.map((cat) => (
+      {location.categories.length > 0 && (
+        <div className="mb-3 flex flex-wrap gap-1">
+          {location.categories.map((cat) => (
             <span
               key={cat.id}
               className="rounded-full px-2 py-0.5 text-xs font-medium"
-              style={
-                cat.color
-                  ? { backgroundColor: `${cat.color}20`, color: cat.color }
-                  : undefined
-              }
+              style={cat.color ? { backgroundColor: `${cat.color}20`, color: cat.color } : undefined}
             >
               {cat.icon && <span className="mr-0.5">{cat.icon}</span>}
               {cat.name}
@@ -158,17 +167,23 @@ function VisitDetail({
         </div>
       )}
 
-      <div className="mb-3 flex items-center gap-1.5">
-        <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: trip.color }} />
-        <p className="text-xs text-muted-foreground">
-          {trip.title}
-          {visit.visited_at && <span> · {visit.visited_at}</span>}
-        </p>
+      <div className="space-y-5">
+        {activeVisits.map(({ trip, visit }) => (
+          <div key={visit.id}>
+            <div className="mb-2 flex items-center gap-1.5">
+              <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: trip.color }} />
+              <p className="text-xs text-muted-foreground">
+                {trip.title}
+                {visit.visited_at && <span> · {visit.visited_at}</span>}
+              </p>
+            </div>
+            <PhotoCarousel photos={(visit.photos ?? []).map((p) => p.url)} alt={location.name} />
+            {visit.memo && (
+              <p className="text-xs leading-relaxed text-muted-foreground">{visit.memo}</p>
+            )}
+          </div>
+        ))}
       </div>
-
-      {visit.memo && (
-        <p className="text-xs leading-relaxed text-muted-foreground">{visit.memo}</p>
-      )}
     </div>
   );
 }
@@ -226,14 +241,9 @@ function TripList({
                       >
                         <path d="M9 18l6-6-6-6" />
                       </svg>
-                      <span
-                        className="h-2 w-2 shrink-0 rounded-full"
-                        style={{ background: trip.color }}
-                      />
+                      <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: trip.color }} />
                       <span className="min-w-0 truncate font-medium">{trip.title}</span>
-                      <span className="ml-auto shrink-0 text-xs text-muted-foreground">
-                        {month}月
-                      </span>
+                      <span className="ml-auto shrink-0 text-xs text-muted-foreground">{month}月</span>
                     </button>
 
                     {isOpen && (
@@ -277,13 +287,12 @@ function TripList({
 // ── Main component ───────────────────────────────────────────────────────────
 export default function VisitedMap({ trips }: { trips: Trip[] }) {
   const [openTripIds, setOpenTripIds] = useState<Set<string>>(new Set());
-  const [activeLocation, setActiveLocation] = useState<ActiveLocation | null>(null);
+  const [activeVisits, setActiveVisits] = useState<ActiveVisit[] | null>(null);
   const { resolvedTheme } = useTheme();
 
-  const activeTripForController =
-    activeLocation
-      ? trips.find((t) => t.id === activeLocation.trip.id) ?? null
-      : null;
+  const activePosition = activeVisits
+    ? [activeVisits[0].visit.location.lat, activeVisits[0].visit.location.lng] as [number, number]
+    : null;
 
   const tileUrl =
     resolvedTheme === "dark"
@@ -298,17 +307,23 @@ export default function VisitedMap({ trips }: { trips: Trip[] }) {
     });
   };
 
+  const handleVisitClick = (trip: Trip, visit: Visit) => {
+    setActiveVisits(getVisitsForLocation(trips, visit.location_id));
+  };
+
+  const uniqueLocations = getUniqueLocations(trips);
+
   return (
     <div className="flex h-full overflow-hidden rounded-lg border border-border">
       <aside className="w-64 shrink-0 overflow-y-auto border-r border-border bg-background p-4">
-        {activeLocation ? (
-          <VisitDetail active={activeLocation} onBack={() => setActiveLocation(null)} />
+        {activeVisits ? (
+          <LocationDetail activeVisits={activeVisits} onBack={() => setActiveVisits(null)} />
         ) : (
           <TripList
             trips={trips}
             openTripIds={openTripIds}
             onToggle={toggleTrip}
-            onVisitClick={(trip, visit) => setActiveLocation({ trip, visit })}
+            onVisitClick={handleVisitClick}
           />
         )}
       </aside>
@@ -324,25 +339,22 @@ export default function VisitedMap({ trips }: { trips: Trip[] }) {
           url={tileUrl}
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
         />
-        <MapController trip={activeTripForController} />
+        <MapController position={activePosition} />
         <ResetViewButton />
 
-        {trips.flatMap((trip) =>
-          trip.visits.map((visit) => (
+        {uniqueLocations.map(({ trip, visit }) => {
+          const isActive = activeVisits?.some((av) => av.visit.location_id === visit.location_id) ?? false;
+          return (
             <Marker
-              key={visit.id}
+              key={visit.location_id}
               position={[visit.location.lat, visit.location.lng]}
-              icon={createMarkerIcon(
-                trip.color,
-                activeLocation?.visit.id === visit.id &&
-                  activeLocation?.trip.id === trip.id
-              )}
+              icon={createMarkerIcon(trip.color, isActive)}
               eventHandlers={{
-                click: () => setActiveLocation({ trip, visit }),
+                click: () => handleVisitClick(trip, visit),
               }}
             />
-          ))
-        )}
+          );
+        })}
       </MapContainer>
     </div>
   );
