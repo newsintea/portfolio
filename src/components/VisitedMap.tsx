@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { MapContainer, TileLayer, Marker, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -191,15 +191,29 @@ function LocationDetail({
 // ── Sidebar: Trip list (year → accordion) ────────────────────────────────────
 function TripList({
   trips,
-  openTripIds,
+  openTripId,
   onToggle,
   onVisitClick,
+  sidebarRef,
 }: {
   trips: Trip[];
-  openTripIds: Set<string>;
+  openTripId: string | null;
   onToggle: (id: string) => void;
   onVisitClick: (trip: Trip, visit: Visit) => void;
+  sidebarRef: React.RefObject<HTMLElement | null>;
 }) {
+  const tripRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  useEffect(() => {
+    if (!openTripId) return;
+    const el = tripRefs.current[openTripId];
+    const sidebar = sidebarRef.current;
+    if (el && sidebar) {
+      const elTop = el.getBoundingClientRect().top;
+      const sidebarTop = sidebar.getBoundingClientRect().top;
+      sidebar.scrollTo({ top: sidebar.scrollTop + elTop - sidebarTop - 16, behavior: "smooth" });
+    }
+  }, [openTripId, sidebarRef]);
+
   const byYear = trips.reduce<Record<string, Trip[]>>((acc, trip) => {
     const year = trip.started_at.split("-")[0];
     (acc[year] ??= []).push(trip);
@@ -220,10 +234,10 @@ function TripList({
             <p className="mb-2 text-xs font-semibold text-muted-foreground">{year}</p>
             <div className="space-y-0.5">
               {byYear[year].map((trip) => {
-                const isOpen = openTripIds.has(trip.id);
+                const isOpen = openTripId === trip.id;
                 const month = parseInt(trip.started_at.split("-")[1], 10);
                 return (
-                  <div key={trip.id}>
+                  <div key={trip.id} ref={(el) => { tripRefs.current[trip.id] = el; }}>
                     <button
                       onClick={() => onToggle(trip.id)}
                       className="flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-muted"
@@ -286,7 +300,8 @@ function TripList({
 
 // ── Main component ───────────────────────────────────────────────────────────
 export default function VisitedMap({ trips }: { trips: Trip[] }) {
-  const [openTripIds, setOpenTripIds] = useState<Set<string>>(new Set());
+  const [openTripId, setOpenTripId] = useState<string | null>(null);
+  const sidebarRef = useRef<HTMLElement | null>(null);
   const [activeVisits, setActiveVisits] = useState<ActiveVisit[] | null>(null);
   const { resolvedTheme } = useTheme();
 
@@ -300,11 +315,7 @@ export default function VisitedMap({ trips }: { trips: Trip[] }) {
       : "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
 
   const toggleTrip = (id: string) => {
-    setOpenTripIds((prev) => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
+    setOpenTripId((prev) => (prev === id ? null : id));
   };
 
   const handleVisitClick = (trip: Trip, visit: Visit) => {
@@ -315,15 +326,16 @@ export default function VisitedMap({ trips }: { trips: Trip[] }) {
 
   return (
     <div className="flex h-full overflow-hidden rounded-lg border border-border">
-      <aside className="w-64 shrink-0 overflow-y-auto border-r border-border bg-background p-4">
+      <aside ref={sidebarRef} className="w-64 shrink-0 overflow-y-auto border-r border-border bg-background p-4">
         {activeVisits ? (
           <LocationDetail activeVisits={activeVisits} onBack={() => setActiveVisits(null)} />
         ) : (
           <TripList
             trips={trips}
-            openTripIds={openTripIds}
+            openTripId={openTripId}
             onToggle={toggleTrip}
             onVisitClick={handleVisitClick}
+            sidebarRef={sidebarRef}
           />
         )}
       </aside>
