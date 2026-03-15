@@ -6,6 +6,8 @@ import type { MapRef } from "react-map-gl/maplibre";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useTheme } from "next-themes";
 import type { Trip, Visit, Category, LocationEntry } from "@/lib/trips";
+import Lightbox from "yet-another-react-lightbox";
+import "yet-another-react-lightbox/styles.css";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 const INITIAL_LNG = 138.2529;
@@ -79,11 +81,18 @@ function MapController({
 // ── Photo carousel ────────────────────────────────────────────────────────────
 function PhotoCarousel({ photos, alt }: { photos: string[]; alt: string }) {
   const [index, setIndex] = useState(0);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
   if (photos.length === 0) return null;
+  const slides = photos.map((src) => ({ src }));
   return (
     <div className="mb-3">
       <div className="relative w-full overflow-hidden rounded-lg" style={{ aspectRatio: "4/3" }}>
-        <img src={photos[index]} alt={alt} className="h-full w-full object-cover" />
+        <img
+          src={photos[index]}
+          alt={alt}
+          className="h-full w-full cursor-zoom-in object-cover"
+          onClick={() => setLightboxOpen(true)}
+        />
         {photos.length > 1 && (
           <>
             <button
@@ -108,6 +117,18 @@ function PhotoCarousel({ photos, alt }: { photos: string[]; alt: string }) {
           </>
         )}
       </div>
+      <Lightbox
+        open={lightboxOpen}
+        close={() => setLightboxOpen(false)}
+        index={index}
+        slides={slides}
+        on={{ view: ({ index: i }) => setIndex(i) }}
+        carousel={{ finite: slides.length === 1 }}
+        render={{
+          buttonPrev: slides.length === 1 ? () => null : undefined,
+          buttonNext: slides.length === 1 ? () => null : undefined,
+        }}
+      />
     </div>
   );
 }
