@@ -10,19 +10,19 @@ import CareerTimeline from "@/components/CareerTimeline";
 
 const career = [
   {
+    period: "2021.04 – 現在",
+    company: "ARアドバンストテクノロジ株式会社",
+    role: "Webアプリケーションエンジニア / 課長代理",
+    description: "メンバーとして入社後、チームリーダー・課長代理へ昇格。フロントエンドを中心に、バックエンドからインフラまで幅広くWebアプリケーション開発を担当。",
+    tags: [],
+  },
+  {
     period: "2024.10 – 現在",
     company: "株式会社Propally",
     role: "フルスタックエンジニア",
     type: "freelance" as const,
     description: "個人事業主として副業参画。フルスタックエンジニアとしてプロダクト開発に携わる。",
-    tags: ["Ruby on Rails"],
-  },
-  {
-    period: "2021.04 – 現在",
-    company: "ARアドバンストテクノロジ株式会社",
-    role: "Webアプリケーションエンジニア / 課長代理",
-    description: "メンバーとして入社後、チームリーダー・課長代理へ昇格。フロントエンドを中心に、バックエンドからインフラまで幅広くWebアプリケーション開発を担当。",
-    tags: ["React", "MUI", "TypeScript", "OpenAPI", "AWS"],
+    tags: ["Ruby on Rails", "React", "MUI", "TypeScript", "OpenAPI", "AWS"],
   },
 ];
 
