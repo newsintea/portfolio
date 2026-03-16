@@ -7,6 +7,9 @@ export type CareerEntry = {
   tags?: string[];
 };
 
+const blurSensitive = process.env.NEXT_PUBLIC_BLUR_SENSITIVE === "true";
+const blurClass = blurSensitive ? " blur-[3px] select-none" : "";
+
 export default function CareerTimeline({ entries }: { entries: CareerEntry[] }) {
   return (
     <div className="relative">
@@ -21,17 +24,17 @@ export default function CareerTimeline({ entries }: { entries: CareerEntry[] }) 
 
             <p className="mb-1 text-xs text-muted-foreground">{entry.period}</p>
             <div className="mb-0.5 flex items-center gap-2">
-              <p className="text-sm font-semibold">{entry.company}</p>
+              <p className={`text-sm font-semibold${blurClass}`}>{entry.company}</p>
               {entry.type === "freelance" && (
                 <span className="rounded-full border border-border px-2 py-0.5 text-xs text-muted-foreground">
                   業務委託
                 </span>
               )}
             </div>
-            <p className="mb-2 text-sm text-muted-foreground">{entry.role}</p>
+            <p className={`mb-2 text-sm text-muted-foreground${blurClass}`}>{entry.role}</p>
 
             {entry.description && (
-              <p className="mb-3 text-sm leading-relaxed text-muted-foreground">
+              <p className={`mb-3 text-sm leading-relaxed text-muted-foreground${blurClass}`}>
                 {entry.description}
               </p>
             )}
@@ -41,7 +44,7 @@ export default function CareerTimeline({ entries }: { entries: CareerEntry[] }) 
                 {entry.tags.map((tag) => (
                   <span
                     key={tag}
-                    className="rounded-full border border-border px-2.5 py-0.5 text-xs text-muted-foreground"
+                    className={`rounded-full border border-border px-2.5 py-0.5 text-xs text-muted-foreground${blurClass}`}
                   >
                     {tag}
                   </span>
