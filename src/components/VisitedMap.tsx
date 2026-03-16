@@ -123,6 +123,7 @@ function PhotoCarousel({ photos, alt }: { photos: string[]; alt: string }) {
         index={index}
         slides={slides}
         on={{ view: ({ index: i }) => setIndex(i) }}
+        controller={{ closeOnBackdropClick: true }}
         carousel={{ finite: slides.length === 1 }}
         render={{
           buttonPrev: slides.length === 1 ? () => null : undefined,
