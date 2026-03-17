@@ -22,7 +22,7 @@ export function BlogTabs({ postsByCategory }: BlogTabsProps) {
     <Tabs defaultValue="tech">
       <TabsList>
         {Object.entries(CATEGORIES).map(([key, label]) => (
-          <TabsTrigger key={key} value={key}>
+          <TabsTrigger key={key} value={key} className="cursor-pointer">
             {label}
           </TabsTrigger>
         ))}
